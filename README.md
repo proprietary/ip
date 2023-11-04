@@ -1,5 +1,7 @@
 # a "What is my IP?" server
 
+Linux only because this uses `epoll(7)`
+
 ## Building
 
 ```bash
