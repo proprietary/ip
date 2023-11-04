@@ -14,4 +14,9 @@ cc_binary(
     linkopts = [
         "-fsanitize=undefined,address,leak",
     ],
+    deps = [
+        "@fmt//:fmt",
+        "@gflags//:gflags",
+        "@glog//:glog",
+    ],
 )
