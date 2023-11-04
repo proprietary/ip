@@ -81,8 +81,9 @@ void run_server(epoll_event *events, size_t maxevents, int server_sock,
           inet_ntop(AF_INET6, &client_addr, client_ip, client_addr_len);
         }
         sprintf(message,
-                "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n%s",
-                client_ip);
+                "HTTP/1.1 200 OK\r\nContent-Type: "
+                "text/plain\r\nContent-Length: %ld\r\n\r\n%s",
+                strlen(client_ip), client_ip);
         write(events[n].data.fd, message, strlen(message));
         close(events[n].data.fd);
       }
