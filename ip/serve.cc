@@ -1,10 +1,10 @@
 #include <arpa/inet.h>
+#include <csignal>
+#include <cstdlib>
+#include <cstring>
 #include <fcntl.h>
 #include <iostream>
 #include <netinet/in.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -30,8 +30,8 @@ void run_server(epoll_event *events, size_t maxevents, int server_sock,
   int client_sock = 0;
   char message[1024];
   char client_ip[INET6_ADDRSTRLEN];
-  sockaddr_in6 client_addr;
-  size_t client_addr_len = sizeof(client_addr);
+  sockaddr_in6 client_addr{};
+  socklen_t client_addr_len = sizeof(client_addr);
 
   // Bind
   if (bind(server_sock, reinterpret_cast<const sockaddr *>(server_addr),
@@ -51,7 +51,7 @@ void run_server(epoll_event *events, size_t maxevents, int server_sock,
   if (epoll_fd < 0) {
     perror("epoll_create1");
   }
-  epoll_event ev;
+  epoll_event ev{};
   ev.events = EPOLLIN;
   ev.data.fd = server_sock;
   if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, server_sock, &ev) < 0) {
@@ -65,7 +65,7 @@ void run_server(epoll_event *events, size_t maxevents, int server_sock,
       if (events[n].data.fd == server_sock) {
         client_sock =
             accept(server_sock, reinterpret_cast<sockaddr *>(&client_addr),
-                   reinterpret_cast<socklen_t *>(&client_addr_len));
+                   &client_addr_len);
         if (auto err = make_socket_nonblocking(client_sock); err < 0) {
           exit(1);
         }
@@ -76,15 +76,27 @@ void run_server(epoll_event *events, size_t maxevents, int server_sock,
         memset(message, 0, sizeof(message));
         memset(&client_ip, 0, sizeof(client_ip));
         if (IN6_IS_ADDR_V4MAPPED(&(&client_addr)->sin6_addr)) {
-          inet_ntop(AF_INET, &client_addr, client_ip, client_addr_len);
+          auto dst =
+              inet_ntop(AF_INET, &client_addr, static_cast<char *>(client_ip),
+                        INET6_ADDRSTRLEN);
+          if (dst == nullptr) {
+            perror("inet_ntop() for ipv4");
+          }
         } else {
-          inet_ntop(AF_INET6, &client_addr, client_ip, client_addr_len);
+          auto dst =
+              inet_ntop(AF_INET6, &client_addr, static_cast<char *>(client_ip),
+                        INET6_ADDRSTRLEN);
+          if (dst == nullptr) {
+            perror("inet_ntop() for ipv6");
+          }
         }
-        sprintf(message,
+        sprintf(static_cast<char *>(message),
                 "HTTP/1.1 200 OK\r\nContent-Type: "
                 "text/plain\r\nContent-Length: %ld\r\n\r\n%s",
-                strlen(client_ip), client_ip);
-        write(events[n].data.fd, message, strlen(message));
+                strlen(static_cast<char *>(client_ip)),
+                static_cast<char *>(client_ip));
+        write(events[n].data.fd, static_cast<char *>(message),
+              strlen(static_cast<char *>(message)));
         close(events[n].data.fd);
       }
     }
@@ -92,7 +104,7 @@ void run_server(epoll_event *events, size_t maxevents, int server_sock,
 }
 
 int main(int argc, char *argv[]) {
-  sockaddr_in6 server_addr;
+  sockaddr_in6 server_addr{};
 
   // Create socket
   memset(&server_addr, 0, sizeof(server_addr));
