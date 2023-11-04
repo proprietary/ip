@@ -1,3 +1,4 @@
+#include "ip/util.h"
 #include <arpa/inet.h>
 #include <csignal>
 #include <cstdint>
@@ -31,23 +32,26 @@ DEFINE_int32(maxevents, 100,
              "`maxevents` to use in epoll (If you don't know, just leave this "
              "at the default)");
 
-int make_socket_nonblocking(int socket) {
-  const int opts = fcntl(socket, F_GETFL);
-  if (opts < 0) {
-    auto err = errno;
-    perror("fcntl(F_GETFL)\n");
-    return err;
+namespace {
+
+epoll_event *events = new epoll_event[FLAGS_maxevents];
+int num_fds = 0;
+
+static void handle_sigint(int signum) {
+  LOG(INFO) << "SIGINT detected. Shutting down safely.";
+  for (auto i = 0; i < num_fds; ++i) {
+    DLOG(INFO) << "Closing file descriptor " << i + 1 << "/" << num_fds + 1;
+    close(events[i].data.fd);
   }
-  if (fcntl(socket, F_SETFL, opts | O_NONBLOCK) < 0) {
-    auto err = errno;
-    perror("fcntl(F_SETFL)\n");
-    return err;
-  }
-  return 0;
+  DLOG(INFO) << "Closed all extant file descriptors";
+  delete[] events;
+  exit(EXIT_SUCCESS);
 }
 
 void run_server(int &num_fds, epoll_event *events, size_t maxevents,
                 int server_sock, sockaddr_in6 *server_addr) {
+  using net_zelcon::ip::make_socket_nonblocking;
+
   int client_sock = 0;
   char message[1024];
   char client_ip[INET6_ADDRSTRLEN];
@@ -123,22 +127,6 @@ void run_server(int &num_fds, epoll_event *events, size_t maxevents,
   }
 }
 
-namespace {
-
-epoll_event *events = new epoll_event[FLAGS_maxevents];
-int num_fds = 0;
-
-static void handle_sigint(int signum) {
-  LOG(INFO) << "SIGINT detected. Shutting down safely.";
-  for (auto i = 0; i < num_fds; ++i) {
-    DLOG(INFO) << "Closing file descriptor " << i + 1 << "/" << num_fds + 1;
-    close(events[i].data.fd);
-  }
-  DLOG(INFO) << "Closed all extant file descriptors";
-  delete[] events;
-  exit(EXIT_SUCCESS);
-}
-
 } // namespace
 
 int main(int argc, char *argv[]) {
@@ -158,7 +146,8 @@ int main(int argc, char *argv[]) {
   if (server_sock == -1) {
     perror("socket");
   }
-  if (auto err = make_socket_nonblocking(server_sock); err < 0) {
+  if (auto err = net_zelcon::ip::make_socket_nonblocking(server_sock);
+      err < 0) {
     return 1;
   }
 

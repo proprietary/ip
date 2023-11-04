@@ -2,6 +2,8 @@ cc_binary(
     visibility = ["//visibility:public"],
     name = "ip",
     srcs = [
+        "ip/util.h",
+        "ip/util.cc",
         "ip/serve.cc",
     ],
     copts = [
