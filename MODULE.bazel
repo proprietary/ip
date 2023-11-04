@@ -1,0 +1,5 @@
+module(
+    name = "ip"
+    version = "1.0.0",
+    compatibility_level = "1",
+)

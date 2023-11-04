@@ -1,0 +1,10 @@
+cc_binary(
+    visibility = ["//visibility:public"],
+    name = "ip",
+    srcs = [
+        "ip/serve.cc",
+    ],
+    copts = [
+        "-std=c++20",
+    ],
+)
