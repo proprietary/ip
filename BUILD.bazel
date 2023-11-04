@@ -6,5 +6,12 @@ cc_binary(
     ],
     copts = [
         "-std=c++20",
+        "-Werror",
+        "-Wall",
+        "-fsanitize=undefined,address,leak",
+        "-fno-omit-frame-pointer",
+    ],
+    linkopts = [
+        "-fsanitize=undefined,address,leak",
     ],
 )
